@@ -11,3 +11,44 @@ def assign_ticket(tickets, ticket_id, staff_name):
             return ticket
 
     raise ValueError(f"Ticket {ticket_id} not found.")
+
+def change_status(tickets, ticket_id, new_status):
+    """Change a ticket's status while enforcing workflow rules."""
+
+    allowed_statuses = {"open", "in_progress", "resolved"}
+
+    if new_status not in allowed_statuses:
+        raise ValueError(f"Invalid status: {new_status}")
+
+    for ticket in tickets:
+        if ticket["id"] == ticket_id:
+            current_status = ticket["status"]
+
+            if current_status == "resolved":
+                if new_status != "open":
+                    raise ValueError(
+                        "Resolved tickets must be reopened before further changes."
+                    )
+                ticket["status"] = "open"
+                return ticket
+
+            if current_status == "open" and new_status == "in_progress":
+                if not ticket["assigned_to"]:
+                    raise ValueError(
+                        "Ticket must be assigned before work can begin."
+                    )
+
+            valid_transitions = {
+                "open": {"in_progress"},
+                "in_progress": {"resolved"},
+            }
+
+            if new_status not in valid_transitions.get(current_status, set()):
+                raise ValueError(
+                    f"Cannot change status from {current_status} to {new_status}."
+                )
+
+            ticket["status"] = new_status
+            return ticket
+
+    raise ValueError(f"Ticket {ticket_id} not found.")
