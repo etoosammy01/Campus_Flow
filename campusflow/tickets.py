@@ -24,11 +24,19 @@ def validate_ticket_data(title, category, urgency, affected_users):
     if not isinstance(title, str) or not title.strip():
         raise ValueError("Ticket title cannot be empty.")
 
-    # Only these categories are allowed.
+    # Category must be a string.
+    if not isinstance(category, str):
+        raise ValueError("Ticket category must be a string.")
+
+    # The category must be one of the allowed values.
     if category not in ["Network", "Hardware", "Software", "Other"]:
         raise ValueError("Invalid ticket category.")
 
-    # Only these urgency levels are allowed.
+    # Urgency must be a string.
+    if not isinstance(urgency, str):
+        raise ValueError("Urgency must be a string.")
+
+    # The urgency must be one of the allowed values.
     if urgency not in ["low", "medium", "high"]:
         raise ValueError("Invalid urgency level.")
 
@@ -36,17 +44,39 @@ def validate_ticket_data(title, category, urgency, affected_users):
     if isinstance(affected_users, bool) or not isinstance(affected_users, int) or affected_users <= 0:
         raise ValueError("Affected users must be a positive integer.")
 
+def validate_existing_tickets(tickets):
+    """Ensure existing ticket records have valid IDs."""
+
+    for ticket in tickets:
+        if not isinstance(ticket, dict):
+            raise ValueError("Existing ticket record must be a dictionary.")
+
+        ticket_id = ticket.get("id")
+
+        if not isinstance(ticket_id, str):
+            raise ValueError("Existing ticket must have a string ID.")
+
+        if (
+            len(ticket_id) < 2
+            or ticket_id[0] != "T"
+            or not ticket_id[1:].isdigit()
+        ):
+            raise ValueError("Existing ticket has an invalid ID format.")
+
 def create_ticket(title, category, urgency, affected_users, tickets):
     """Validate, create, and store a new ticket."""
 
-    # Reject invalid information before changing the ticket list.
+    # Validate the new ticket information first.
     validate_ticket_data(title, category, urgency, affected_users)
+
+    # Reject malformed existing records before generating an ID.
+    validate_existing_tickets(tickets)
 
     # Find the highest existing ticket number.
     existing_numbers = [
         int(ticket["id"][1:])
         for ticket in tickets
-    ]
+]
 
     # Generate the next ID.
     next_number = max(existing_numbers, default=0) + 1

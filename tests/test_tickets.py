@@ -3,6 +3,7 @@ import unittest
 from campusflow.tickets import calculate_priority
 from campusflow.tickets import validate_ticket_data
 from campusflow.tickets import create_ticket
+from campusflow.tickets import validate_existing_tickets
 
 
 class TestCalculatePriority(unittest.TestCase):
@@ -52,6 +53,14 @@ class TestValidateTicketData(unittest.TestCase):
     def test_boolean_affected_users(self):
         with self.assertRaises(ValueError):
             validate_ticket_data("Internet is down", "Network", "high", True)
+
+    def test_category_must_be_a_string(self):
+        with self.assertRaisesRegex(ValueError, "category must be a string"):
+            validate_ticket_data("Network failure", ["Network"], "high", 5)
+    
+    def test_urgency_must_be_a_string(self):
+        with self.assertRaisesRegex(ValueError, "Urgency must be a string"):
+            validate_ticket_data("Network failure", "Network", 123, 5)
 
 class TestCreateTicket(unittest.TestCase):
 
@@ -136,6 +145,23 @@ class TestCreateTicket(unittest.TestCase):
             )
 
         self.assertEqual(len(self.tickets), 0)
+
+    def test_reject_existing_ticket_without_id(self):
+        tickets = [{"title": "Malformed record"}]
+
+        with self.assertRaisesRegex(ValueError, "must have a string ID"):
+            create_ticket("New ticket", "Network", "high", 5, tickets)
+
+        # Failed creation must not add a new ticket.
+        self.assertEqual(len(tickets), 1)
+
+    def test_reject_existing_ticket_with_invalid_id(self):
+        tickets = [{"id": "INVALID"}]
+
+        with self.assertRaisesRegex(ValueError, "invalid ID format"):
+            create_ticket("New ticket", "Network", "high", 5, tickets)
+
+        self.assertEqual(len(tickets), 1)
 
 if __name__ == "__main__":
     unittest.main()
