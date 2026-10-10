@@ -1,6 +1,21 @@
-
+# Python cache files
 __pycache__/
 *.py[cod]
-.env
+
+# Virtual environments
 .venv/
 venv/
+
+# Environment variables and secrets
+.env
+
+# Test cache
+.pytest_cache/
+
+# Runtime ticket data
+data/tickets.json
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
