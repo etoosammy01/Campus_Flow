@@ -1,4 +1,5 @@
 
+
 def assign_ticket(tickets, ticket_id, staff_name):
     """Assign an existing ticket to a staff member."""
 
@@ -7,10 +8,17 @@ def assign_ticket(tickets, ticket_id, staff_name):
 
     for ticket in tickets:
         if ticket["id"] == ticket_id:
+
+            if ticket["status"] == "resolved":
+                raise ValueError(
+                    "Reopen the ticket before modifying it."
+                )
+
             ticket["assigned_to"] = staff_name.strip()
             return ticket
 
     raise ValueError(f"Ticket {ticket_id} not found.")
+
 
 def change_status(tickets, ticket_id, new_status):
     """Change a ticket's status while enforcing workflow rules."""
@@ -52,3 +60,27 @@ def change_status(tickets, ticket_id, new_status):
             return ticket
 
     raise ValueError(f"Ticket {ticket_id} not found.")
+
+
+def get_work_queue(tickets):
+    """Return open tickets ordered by priority and ticket ID."""
+
+    priority_order = {
+        "critical": 0,
+        "high": 1,
+        "medium": 2,
+        "low": 3,
+    }
+
+    open_tickets = [
+        ticket for ticket in tickets
+        if ticket["status"] == "open"
+    ]
+
+    return sorted(
+        open_tickets,
+        key=lambda ticket: (
+            priority_order.get(ticket["priority"], 4),
+            int(ticket["id"][1:]),
+        ),
+    )
