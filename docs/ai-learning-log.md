@@ -46,3 +46,31 @@ the next available sequential ID.
 **Independent verification:** I added a test with existing IDs `T001` and
 `T003` and checked that the next ticket receives `T004`. I ran the unit test
 suite to verify the change.
+
+
+## Engineer B — AI Learning Log
+
+### Interaction 1: Normalizing CLI Input
+
+- **Task:** Make ticket creation accept category and urgency input without requiring exact capitalization.
+- **AI assistance:** Suggested normalizing category input with `.strip().title()` and urgency with `.strip().lower()`.
+- **My action:** Updated the CLI input handling and tested creating a ticket using lowercase `other`.
+- **Outcome:** Ticket creation succeeded with the normalized category.
+
+### Interaction 2: Debugging Storage Tests
+
+- **Task:** Test saving and loading tickets from JSON.
+- **AI assistance:** Helped identify that unexpected text after the Python test code caused a syntax error.
+- **My action:** Replaced the test file with valid Python test code and reran the suite.
+- **Outcome:** The storage tests passed as part of the integrated test suite.
+
+### Interaction 3: Verifying Persistence and Integration
+
+- **Task:** Check that saved tickets remain available after restarting the CLI.
+- **AI assistance:** Suggested testing ticket creation, restarting the application, and checking the saved ticket.
+- **My action:** Created a ticket, restarted the application, and confirmed the ticket appeared again. I also ran the unit tests.
+- **Outcome:** The ticket persisted, and the integrated suite reported 44 passing tests at that stage.
+
+### Independent Verification
+
+I did not treat AI-generated suggestions as automatically correct. I checked the proposed changes by running the application and tests, and corrected the storage test file when it contained invalid Python. I will record any additional issues discovered during final integration review.
