@@ -92,7 +92,3 @@ Business logic will be tested independently using Python's standard `unittest` l
 ## 6. Persistence
 
 The team will use JSON storage and agree on shared loading and saving interfaces before integration.
-
-## Status
-
-Proposed decisions pending confirmation by both engineers.
