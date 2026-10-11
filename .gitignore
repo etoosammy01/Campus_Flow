@@ -19,3 +19,4 @@ data/tickets.json
 .vscode/
 .idea/
 .DS_Store
+tickets.json

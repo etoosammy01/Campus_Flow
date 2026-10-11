@@ -103,13 +103,13 @@ def show_report(tickets):
 def main():
     """Run the CampusFlow command-line application."""
     try:
-    tickets = load_tickets(DATA_FILE)
-except json.JSONDecodeError as error:
-    print(f"Ticket file contains invalid JSON: {error}")
-    return
-except (ValueError, OSError) as error:
-    print(f"Could not load tickets: {error}")
-    return
+        tickets = load_tickets(DATA_FILE)
+    except json.JSONDecodeError as error:
+        print(f"Ticket file contains invalid JSON: {error}")
+        return
+    except (ValueError, OSError) as error:
+        print(f"Could not load tickets: {error}")
+        return
 
     while True:
         print("\n====== CampusFlow ======")
