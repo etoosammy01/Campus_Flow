@@ -1,94 +1,33 @@
-# CampusFlow Design Decisions
+# CampusFlow Next — Design Decisions
 
-## 1. Ticket Representation
+## 1. Ticket data
 
-Tickets will be stored as a list of dictionaries.
+Tickets remain dictionaries in a list, preserving the original JSON list format. The original fields remain and each ticket now has `notes`, initially an empty list. Each note contains `note_id`, `author`, and `message`.
 
-Each ticket contains:
-- id
-- title
-- category
-- urgency
-- affected_users
-- priority
-- status
-- assigned_to
+## 2. Validation and errors
 
-## 2. Input Validation
+Business/data-layer functions raise `ValueError` for invalid user actions. The CLI catches these errors and displays a friendly message. Validation occurs before a mutation is applied. Ticket IDs and note IDs are checked for valid format and uniqueness.
 
-Functions will validate input before changing application state.
+## 3. Workflow
 
-Invalid input will raise ValueError with a helpful message.
+Tickets start `open`; assigned tickets can move to `in_progress`, then `resolved`. Resolved tickets must be reopened to `open` before reassignment or adding notes. Existing notes are retained through these transitions.
 
-## 3. Ticket Creation
+## 4. Search and queue
 
-The ticket creation function will validate the ticket details,
-calculate priority, generate a unique ID, and add the ticket
-to the shared ticket collection.
+Search is a case-insensitive substring match on the title. Supplied category, status, and priority filters are combined with AND. Search results are sorted by priority then numeric ticket ID. The original queue remains limited to `open` tickets.
 
-## 4. Priority Calculation
+## 5. Reporting
 
-Priority will be calculated using the assessment rules in order:
-1. High urgency and at least 10 affected users: critical.
-2. High urgency or at least 10 affected users: high.
-3. Medium urgency or at least 3 affected users: medium.
-4. Otherwise: low.
+The report includes totals by status, priority, and category, unresolved count (`open` + `in_progress`), resolved count, and resolution rate. An empty collection has a 0% resolution rate.
 
-## 5. Testing
+## 6. Persistence and migration
 
-Automated tests will use Python's unittest module.
-Business logic will be tested independently of terminal input.
+JSON remains a list of ticket objects. The loader migrates older records by adding `notes: []`, validates the complete collection, and returns a new collection only when every record is valid. Reload assigns the new collection only after successful loading. Saving validates first and uses a temporary file plus atomic replacement to avoid leaving a partially written JSON file.
 
-## 6. Persistence
+## 7. Testing
 
-Tickets will eventually be saved to and loaded from a JSON file.
+Tests use the standard-library `unittest` module and temporary files. They cover original behaviour and new requirements including invalid actions leaving state unchanged, note ID continuity, corrupt JSON, duplicate IDs, search filters, reporting, and the understanding check.
 
-## 7. Collaboration
+## 8. Collaboration boundaries
 
-Engineer A owns ticket creation, validation, priority calculation,
-and related tests.
-
-Engineer B owns assignment, workflow, queue, reports,
-and related tests.
-
-Both engineers will coordinate interfaces, persistence,
-integration, and code reviews.
-# CampusFlow — Design Decisions
-
-## 1. Ticket Data Structure
-
-Tickets will initially be represented as Python dictionaries stored in a shared list.
-
-Each ticket contains:
-- `id`
-- `title`
-- `category`
-- `urgency`
-- `affected_users`
-- `priority`
-- `status`
-- `assigned_to`
-
-## 2. Engineer Responsibilities
-
-- Engineer A: ticket creation, input validation, and priority calculation.
-- Engineer B: assignment, lifecycle management, work queue, and reports.
-
-## 3. Ticket Workflow
-
-- New tickets start with status `open`.
-- Tickets must be assigned before moving to `in_progress`.
-- Tickets can progress from `open` to `in_progress` to `resolved`.
-- Resolved tickets must be explicitly reopened to `open` before further modification.
-
-## 4. Error Handling
-
-Invalid operations must be rejected without corrupting ticket data. The team will agree on a consistent error-handling approach before integrating the features.
-
-## 5. Testing
-
-Business logic will be tested independently using Python's standard `unittest` library.
-
-## 6. Persistence
-
-The team will use JSON storage and agree on shared loading and saving interfaces before integration.
+Engineer A owns validation, mutation safety, notes, persistence, and related tests. Engineer B owns CLI experience, search, reports, and the shared understanding check. Both engineers must verify the integrated diff and tests before approving a pull request. Actual PR review/approval evidence must be recorded from GitHub.
