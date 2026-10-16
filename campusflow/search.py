@@ -1,36 +1,61 @@
-"""Ticket search with optional AND-combined filters."""
+"""Read-only ticket search. Nothing here modifies a ticket."""
+
+CATEGORY_OPTIONS = ("Network", "Hardware", "Software", "Other")
+STATUS_OPTIONS = ("open", "in_progress", "resolved")
+PRIORITY_OPTIONS = ("critical", "high", "medium", "low")
+PRIORITY_ORDER = {name: rank for rank, name in enumerate(PRIORITY_OPTIONS)}
+
+
+def normalize_filter(value, allowed, label):
+    """Turn raw filter text into an official option, or None for 'no filter'.
+
+    Blank text means "do not filter". Matching ignores case and surrounding
+    spaces. Anything else raises ValueError so the CLI can re-prompt.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{label} filter must be text.")
+    wanted = value.strip().casefold()
+    if not wanted:
+        return None
+    for option in allowed:
+        if wanted == option.casefold():
+            return option
+    raise ValueError(f"{label} must be one of: {', '.join(allowed)} (or leave blank).")
 
 
 def search_tickets(tickets, query="", category=None, status=None, priority=None):
-    """Search title substrings case-insensitively and combine filters with AND."""
+    """Return tickets matching ALL supplied filters, in their stored order.
+
+    The title test is a case-insensitive substring match. A filter that is
+    None is ignored. The tickets themselves are never changed.
+    """
     if not isinstance(query, str):
         raise ValueError("Search query must be text.")
-    if category is not None and (
-        not isinstance(category, str)
-        or category not in {"Network", "Hardware", "Software", "Other"}
-    ):
+    if category is not None and category not in CATEGORY_OPTIONS:
         raise ValueError("Invalid category filter.")
-    if status is not None and (
-        not isinstance(status, str)
-        or status not in {"open", "in_progress", "resolved"}
-    ):
+    if status is not None and status not in STATUS_OPTIONS:
         raise ValueError("Invalid status filter.")
-    if priority is not None and (
-        not isinstance(priority, str)
-        or priority not in {"critical", "high", "medium", "low"}
-    ):
+    if priority is not None and priority not in PRIORITY_OPTIONS:
         raise ValueError("Invalid priority filter.")
 
     needle = query.strip().casefold()
-    order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-    matches = [
+    return [
         ticket for ticket in tickets
-        if needle in ticket.get("title", "").casefold()
+        if needle in str(ticket.get("title", "")).casefold()
         and (category is None or ticket.get("category") == category)
         and (status is None or ticket.get("status") == status)
         and (priority is None or ticket.get("priority") == priority)
     ]
-    return sorted(matches, key=lambda ticket: (
-        order.get(ticket.get("priority"), 4),
-        int(ticket["id"][1:]),
-    ))
+
+
+def sort_by_priority(tickets):
+    """Return a NEW list: critical -> low, ties by numeric ticket ID."""
+    return sorted(
+        tickets,
+        key=lambda ticket: (
+            PRIORITY_ORDER.get(ticket.get("priority"), len(PRIORITY_ORDER)),
+            int(ticket["id"][1:]),
+        ),
+    )

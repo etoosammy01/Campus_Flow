@@ -1,14 +1,19 @@
 """Summary reports for CampusFlow tickets."""
 
+STATUSES = ("open", "in_progress", "resolved")
+PRIORITIES = ("critical", "high", "medium", "low")
+CATEGORIES = ("Network", "Hardware", "Software", "Other")
+
 
 def generate_report(tickets):
-    """Return totals, status/priority/category counts, and resolution metrics."""
-    statuses = ("open", "in_progress", "resolved")
-    priorities = ("critical", "high", "medium", "low")
-    categories = ("Network", "Hardware", "Software", "Other")
-    by_status = {status: 0 for status in statuses}
-    by_priority = {priority: 0 for priority in priorities}
-    by_category = {category: 0 for category in categories}
+    """Return totals, status/priority/category counts, and resolution metrics.
+
+    Every count comes from the tickets' CURRENT values, so a reopened ticket
+    is counted once, under its current status.
+    """
+    by_status = {status: 0 for status in STATUSES}
+    by_priority = {priority: 0 for priority in PRIORITIES}
+    by_category = {category: 0 for category in CATEGORIES}
 
     for ticket in tickets:
         if ticket.get("status") in by_status:
@@ -30,3 +35,19 @@ def generate_report(tickets):
         "resolved": resolved,
         "resolution_rate": (resolved / total * 100) if total else 0.0,
     }
+
+
+def format_report(report):
+    """Return the report as text. Pure function: no print(), easy to test."""
+    lines = [
+        f"Total tickets: {report['total']}",
+        f"Unresolved (open + in progress): {report['unresolved']}",
+        f"Resolved: {report['resolved']}",
+        f"Resolution rate: {report['resolution_rate']:.1f}%",
+    ]
+    for key, label in (("by_status", "By status"),
+                       ("by_priority", "By priority"),
+                       ("by_category", "By category")):
+        lines.append(f"\n{label}:")
+        lines += [f"  {name}: {count}" for name, count in report[key].items()]
+    return "\n".join(lines)

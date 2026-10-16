@@ -2,16 +2,33 @@
 
 import json
 
-from campusflow.assessment import QUESTIONS, score_answers
+from campusflow.assessment import QUESTIONS, run_check
 from campusflow.notes import add_note, get_ticket_notes
-from campusflow.reports import generate_report
-from campusflow.search import search_tickets
+from campusflow.reports import format_report, generate_report
+from campusflow.search import (
+    CATEGORY_OPTIONS, PRIORITY_OPTIONS, STATUS_OPTIONS,
+    normalize_filter, search_tickets, sort_by_priority,
+)
 from campusflow.storage import load_tickets, save_tickets
 from campusflow.tickets import create_ticket
 from campusflow.workflow import assign_ticket, change_status, get_work_queue
 
 DATA_FILE = "tickets.json"
 CHECK_RESULTS_FILE = "engineering_check_results.json"
+
+
+def ask_ticket_id():
+    """Read a ticket ID; 't001' and ' T001 ' both become 'T001'."""
+    return input("Ticket ID: ").strip().upper()
+
+
+def ask_filter(prompt, allowed, label):
+    """Re-prompt until the filter is blank (no filter) or a valid option."""
+    while True:
+        try:
+            return normalize_filter(input(prompt), allowed, label)
+        except ValueError as error:
+            print(f"  {error}")
 
 
 def display_tickets(tickets):
@@ -44,8 +61,11 @@ def create_new_ticket(tickets):
     title = input("Ticket title: ")
     category = input("Category (Network/Hardware/Software/Other): ").strip().title()
     urgency = input("Urgency (low/medium/high): ").strip().lower()
+    raw_users = input("Number of affected users: ").strip()
     try:
-        affected_users = int(input("Number of affected users: "))
+        if not (raw_users.isascii() and raw_users.isdigit()):
+            raise ValueError("Affected users must be a positive whole number.")
+        affected_users = int(raw_users)
         ticket = create_ticket(title, category, urgency, affected_users, tickets)
         save_tickets(tickets, DATA_FILE)
         print(f"Ticket {ticket['id']} created successfully.")
@@ -56,7 +76,7 @@ def create_new_ticket(tickets):
 
 
 def assign_existing_ticket(tickets):
-    ticket_id = input("Ticket ID: ").strip()
+    ticket_id = ask_ticket_id()
     staff_name = input("Staff member's name: ")
     try:
         assign_ticket(tickets, ticket_id, staff_name)
@@ -67,7 +87,7 @@ def assign_existing_ticket(tickets):
 
 
 def update_ticket_status(tickets):
-    ticket_id = input("Ticket ID: ").strip()
+    ticket_id = ask_ticket_id()
     print("Statuses: in_progress, resolved, open (reopen)")
     new_status = input("New status: ").strip()
     try:
@@ -79,7 +99,7 @@ def update_ticket_status(tickets):
 
 
 def add_ticket_note(tickets):
-    ticket_id = input("Ticket ID: ").strip()
+    ticket_id = ask_ticket_id()
     author = input("Note author: ")
     message = input("Note (5–300 characters): ")
     try:
@@ -91,7 +111,7 @@ def add_ticket_note(tickets):
 
 
 def show_notes(tickets):
-    ticket_id = input("Ticket ID: ").strip()
+    ticket_id = ask_ticket_id()
     try:
         notes = get_ticket_notes(tickets, ticket_id)
         if not notes:
@@ -102,23 +122,23 @@ def show_notes(tickets):
         print(error)
 
 
-def search_ticket_list(tickets):
+def ask_search_criteria():
+    """Collect search inputs. Invalid filters re-prompt instead of aborting."""
     query = input("Title contains (leave blank for all titles): ")
-    category = input("Category filter (blank for any): ").strip()
-    status = input("Status filter (blank for any): ").strip()
-    priority = input("Priority filter (blank for any): ").strip()
-    try:
-        results = search_tickets(
-            tickets,
-            query=query,
-            category=category or None,
-            status=status or None,
-            priority=priority or None,
-        )
-        print(f"\nSearch results: {len(results)}")
-        display_tickets(results)
-    except ValueError as error:
-        print(f"Search failed: {error}")
+    category = ask_filter("Category filter (blank for any): ", CATEGORY_OPTIONS, "Category")
+    status = ask_filter("Status filter (blank for any): ", STATUS_OPTIONS, "Status")
+    priority = ask_filter("Priority filter (blank for any): ", PRIORITY_OPTIONS, "Priority")
+    return query, category, status, priority
+
+
+def search_ticket_list(tickets, sort=False):
+    """Read-only search view. With sort=True, order by priority then ID."""
+    query, category, status, priority = ask_search_criteria()
+    results = search_tickets(tickets, query, category, status, priority)
+    if sort:
+        results = sort_by_priority(results)
+    print(f"\nSearch results: {len(results)}")
+    display_tickets(results)
 
 
 def show_work_queue(tickets):
@@ -127,56 +147,22 @@ def show_work_queue(tickets):
 
 
 def show_report(tickets):
-    report = generate_report(tickets)
     print("\n=== Ticket Report ===")
-    print(f"Total tickets: {report['total']}")
-    print(f"Unresolved (open + in progress): {report['unresolved']}")
-    print(f"Resolved: {report['resolved']}")
-    print(f"Resolution rate: {report['resolution_rate']:.1f}%")
-    for key, label in (
-        ("by_status", "By status"),
-        ("by_priority", "By priority"),
-        ("by_category", "By category"),
-    ):
-        print(f"\n{label}:")
-        for name, count in report[key].items():
-            print(f"  {name}: {count}")
+    print(format_report(generate_report(tickets)))
 
 
 def run_understanding_check():
-    """Run the six-question check, retry invalid answers, and save explanations."""
-    answers = []
-    explanations = []
+    """Run the six-question check, then save the score and explanations."""
     print("\n=== Engineering Understanding Check ===")
-    for number, question in enumerate(QUESTIONS, start=1):
-        print(f"\n{number}. {question['question']}")
-        for letter, option in question["options"].items():
-            print(f"  {letter}. {option}")
-        while True:
-            answer = input("Answer (A/B/C/D): ").strip().upper()
-            if answer in {"A", "B", "C", "D"}:
-                break
-            print("Please enter A, B, C, or D.")
-        answers.append(answer)
-        if number in {1, 2, 3, 4, 5, 6} and number in {1, 2}:
-            explanations.append({
-                "question": number,
-                "answer": answer,
-                "explanation": input("Briefly explain your answer: ").strip(),
-            })
-    score = score_answers(answers)
-    result = {"score": score, "out_of": len(QUESTIONS),
-              "answers": answers, "explanations": explanations}
+    result = run_check(QUESTIONS, input, print)
+    print(f"\nScore: {result['score']}/{result['out_of']}")
     try:
         with open(CHECK_RESULTS_FILE, "w", encoding="utf-8") as file:
             json.dump(result, file, indent=2)
             file.write("\n")
-        print(f"Score: {score}/{len(QUESTIONS)}")
         print(f"Answers and explanations saved to {CHECK_RESULTS_FILE}.")
-        for entry in explanations:
-            print(f"Explanation for Q{entry['question']}: {entry['explanation']}")
     except OSError as error:
-        print(f"Score: {score}/{len(QUESTIONS)} (could not save results: {error})")
+        print(f"Could not save results: {error}")
 
 
 def reload_ticket_data(current_tickets):
@@ -210,6 +196,8 @@ def main():
         "9": ("Search tickets", lambda: search_ticket_list(tickets)),
         "10": ("Reload tickets from JSON", None),
         "11": ("Engineering Understanding Check", run_understanding_check),
+        "12": ("Search tickets (sorted by priority)",
+               lambda: search_ticket_list(tickets, sort=True)),
     }
     while True:
         print("\n====== CampusFlow Next ======")
